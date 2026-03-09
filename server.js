@@ -42,7 +42,7 @@ app.use('/api/companies', companyRoutes);
 app.use('/api/woods', woodRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/otp', Otproutes);
-app.use('/api/super-admin', protect, superAdmin, checkSubscription, superAdminRoutes);
+app.use('/api/super-admin', superAdmin, checkSubscription, superAdminRoutes);
 
 // Otproutes
 // Base route
