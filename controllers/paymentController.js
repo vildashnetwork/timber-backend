@@ -1196,76 +1196,170 @@ const manualUpdatePayment = asyncHandler(async (req, res) => {
 // @desc    Get subscription status
 // @route   GET /api/payments/subscription
 // @access  Private (Super Admin only)
+// const getSubscriptionStatus = asyncHandler(async (req, res) => {
+//     console.log('📋 getSubscriptionStatus called');
+//     console.log('User:', req.user ? { id: req.user._id, email: req.user.email, role: req.user.role } : 'No user');
+
+//     const adminId = req.user._id;
+
+//     let subscription = await Subscription.findOne({ admin: adminId })
+//         .populate('admin', 'name email');
+
+//     console.log('Subscription found:', subscription ? 'Yes' : 'No');
+
+//     if (!subscription) {
+//         console.log('Creating new subscription for admin:', adminId);
+//         const endDate = new Date();
+//         endDate.setDate(endDate.getDate() + 7);
+
+//         subscription = await Subscription.create({
+//             admin: adminId,
+//             status: 'EXPIRED',
+//             amount: 50,
+//             currency: 'XAF',
+//             endDate,
+//             nextPaymentDate: endDate
+//         });
+//     }
+
+//     // Check if expired and update status
+//     if (subscription.status === 'ACTIVE' && new Date() > subscription.endDate) {
+//         console.log('Subscription expired, updating status');
+//         subscription.status = 'EXPIRED';
+//         await subscription.save();
+//     }
+
+//     // Get recent payments
+//     const recentPayments = await Payment.find({
+//         admin: adminId,
+//         subscription: subscription._id
+//     })
+//         .sort('-createdAt')
+//         .limit(20);
+
+//     console.log(`Found ${recentPayments.length} recent payments`);
+
+//     res.json({
+//         success: true,
+//         subscription: {
+//             _id: subscription._id,
+//             status: subscription.status,
+//             amount: subscription.amount,
+//             currency: subscription.currency,
+//             startDate: subscription.startDate,
+//             endDate: subscription.endDate,
+//             nextPaymentDate: subscription.nextPaymentDate,
+//             isActive: subscription.status === 'ACTIVE' && new Date() < new Date(subscription.endDate),
+//             gracePeriodEnd: subscription.gracePeriodEnd,
+//             autoRenew: subscription.autoRenew
+//         },
+//         recentPayments: recentPayments.map(p => ({
+//             id: p._id,
+//             amount: p.amount,
+//             currency: p.currency,
+//             status: p.status,
+//             paymentMethod: p.paymentMethod,
+//             date: p.paymentDate || p.createdAt,
+//             transactionId: p.transactionId,
+//             weeks: p.metadata?.weeks || 1,
+//             phoneNumber: p.metadata?.phoneNumber,
+//             provider: p.provider
+//         }))
+//     });
+// });
+
+
+// @desc    Get subscription status
+// @route   GET /api/payments/subscription
+// @access  Private (Super Admin only)
 const getSubscriptionStatus = asyncHandler(async (req, res) => {
     console.log('📋 getSubscriptionStatus called');
-    console.log('User:', req.user ? { id: req.user._id, email: req.user.email, role: req.user.role } : 'No user');
+    console.log('User:', req.user ? { 
+        id: req.user._id, 
+        email: req.user.email, 
+        role: req.user.role 
+    } : 'No user');
 
-    const adminId = req.user._id;
-
-    let subscription = await Subscription.findOne({ admin: adminId })
-        .populate('admin', 'name email');
-
-    console.log('Subscription found:', subscription ? 'Yes' : 'No');
-
-    if (!subscription) {
-        console.log('Creating new subscription for admin:', adminId);
-        const endDate = new Date();
-        endDate.setDate(endDate.getDate() + 7);
-
-        subscription = await Subscription.create({
-            admin: adminId,
-            status: 'EXPIRED',
-            amount: 50,
-            currency: 'XAF',
-            endDate,
-            nextPaymentDate: endDate
+    if (!req.user) {
+        return res.status(401).json({
+            success: false,
+            error: 'Not authenticated'
         });
     }
 
-    // Check if expired and update status
-    if (subscription.status === 'ACTIVE' && new Date() > subscription.endDate) {
-        console.log('Subscription expired, updating status');
-        subscription.status = 'EXPIRED';
-        await subscription.save();
+    const adminId = req.user._id;
+
+    try {
+        let subscription = await Subscription.findOne({ admin: adminId })
+            .populate('admin', 'name email');
+
+        console.log('Subscription found:', subscription ? 'Yes' : 'No');
+
+        if (!subscription) {
+            // Create a default subscription if none exists
+            const endDate = new Date();
+            endDate.setDate(endDate.getDate() + 7); // 7 days from now
+
+            subscription = await Subscription.create({
+                admin: adminId,
+                status: 'EXPIRED',
+                amount: 50,
+                currency: 'XAF',
+                endDate,
+                nextPaymentDate: endDate
+            });
+            console.log('Created new subscription for admin:', adminId);
+        }
+
+        // Check if expired and update status
+        if (subscription.status === 'ACTIVE' && new Date() > new Date(subscription.endDate)) {
+            console.log('Subscription expired, updating status');
+            subscription.status = 'EXPIRED';
+            await subscription.save();
+        }
+
+        // Get recent payments
+        const recentPayments = await Payment.find({
+            admin: adminId,
+            subscription: subscription._id
+        })
+            .sort('-createdAt')
+            .limit(20);
+
+        res.json({
+            success: true,
+            subscription: {
+                _id: subscription._id,
+                status: subscription.status,
+                amount: subscription.amount,
+                currency: subscription.currency,
+                startDate: subscription.startDate,
+                endDate: subscription.endDate,
+                nextPaymentDate: subscription.nextPaymentDate,
+                isActive: subscription.status === 'ACTIVE' && new Date() < new Date(subscription.endDate),
+                gracePeriodEnd: subscription.gracePeriodEnd,
+                autoRenew: subscription.autoRenew,
+                adminEmail: req.user.email // Include admin email for verification
+            },
+            recentPayments: recentPayments.map(p => ({
+                id: p._id,
+                amount: p.amount,
+                currency: p.currency,
+                status: p.status,
+                paymentMethod: p.paymentMethod,
+                date: p.paymentDate || p.createdAt,
+                transactionId: p.transactionId,
+                weeks: p.metadata?.weeks || 1,
+                phoneNumber: p.metadata?.phoneNumber
+            }))
+        });
+    } catch (error) {
+        console.error('Error in getSubscriptionStatus:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch subscription status'
+        });
     }
-
-    // Get recent payments
-    const recentPayments = await Payment.find({
-        admin: adminId,
-        subscription: subscription._id
-    })
-        .sort('-createdAt')
-        .limit(20);
-
-    console.log(`Found ${recentPayments.length} recent payments`);
-
-    res.json({
-        success: true,
-        subscription: {
-            _id: subscription._id,
-            status: subscription.status,
-            amount: subscription.amount,
-            currency: subscription.currency,
-            startDate: subscription.startDate,
-            endDate: subscription.endDate,
-            nextPaymentDate: subscription.nextPaymentDate,
-            isActive: subscription.status === 'ACTIVE' && new Date() < new Date(subscription.endDate),
-            gracePeriodEnd: subscription.gracePeriodEnd,
-            autoRenew: subscription.autoRenew
-        },
-        recentPayments: recentPayments.map(p => ({
-            id: p._id,
-            amount: p.amount,
-            currency: p.currency,
-            status: p.status,
-            paymentMethod: p.paymentMethod,
-            date: p.paymentDate || p.createdAt,
-            transactionId: p.transactionId,
-            weeks: p.metadata?.weeks || 1,
-            phoneNumber: p.metadata?.phoneNumber,
-            provider: p.provider
-        }))
-    });
 });
 
 // @desc    Get payment history
