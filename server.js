@@ -1,44 +1,61 @@
-import express from "express";
-import cors from "cors";
-import helmet from "helmet";
-import morgan from "morgan";
-import mongoose from "mongoose";
-import env from "dotenv";
-import admin from "./routes/admin.js"
+const express = require('express');
+const dotenv = require('dotenv');
+const cors = require('cors');
+const connectDB = require('./config/database');
+const { errorHandler } = require('./middleware/errorMiddleware');
 
-const app = express()
-env.config();
+// Load env vars
+dotenv.config();
 
+// Connect to database
+connectDB();
 
-app.use(cors())
-app.use(morgan(":method :url :status :response-time ms - :res[content-length]"));
+// Route imports
+const authRoutes = require('./routes/authRoutes');
+const companyRoutes = require('./routes/companyRoutes');
+const woodRoutes = require('./routes/woodRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+const Otproutes = require('./routes/otpRoutes');
+
+const app = express();
+
+// Body parser
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: false }));
 
-// --- 3. ROUTES ---
-app.use("/api/admin", admin)
+// CORS
+app.use(cors({
+    origin: process.env.NODE_ENV === 'production'
+        ? process.env.FRONTEND_URL
+        : 'http://localhost:8080',
+    credentials: true,
+}));
 
+// Mount routes
+app.use('/api/auth', authRoutes);
+app.use('/api/companies', companyRoutes);
+app.use('/api/woods', woodRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/otp', Otproutes);
 
-app.get("/", (_req, res) => {
-    res.send("server is on");
+// Otproutes
+// Base route
+app.get('/', (req, res) => {
+    res.json({ message: 'Welcome to Timber Platform API' });
 });
 
-// --- 4. DATABASE CONNECTION ---
-const connectDb = async () => {
-    try {
-        await mongoose.connect(process.env.MONGODB_URI);
-        console.log("database connected successfully!!");
-    } catch (err) {
-        console.error("error connecting to the database:", err);
-    }
-};
 
-// --- 5. START SERVER ---
-const PORT = process.env.PORT || 6300;
+// Error handler
+app.use(errorHandler);
 
+const PORT = process.env.PORT || 5000;
 
-connectDb().then(() => {
-    app.listen(PORT, () => {
-        console.log(`server running on port ${PORT}`);
-    });
+const server = app.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err, promise) => {
+    console.log(`Error: ${err.message}`);
+    server.close(() => process.exit(1));
 });
