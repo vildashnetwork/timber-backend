@@ -7,21 +7,32 @@ const {
     getSubscriptionStatus,
     getPaymentHistory
 } = require('../controllers/paymentController');
-const { protect, superAdmin } = require('../middleware/authMiddleware');
+const { protect } = require('../middleware/authMiddleware');
+const { checkSubscription } = require('../middleware/subscriptionCheck');
 
 // Public webhook (no auth)
 router.post('/webhook/nkwa', nkwaWebhook);
 
-// Protected routes
+// All routes below require authentication
 router.use(protect);
 
-// Super admin only routes
-router.use(superAdmin);
-
-// Subscription management
+// Subscription routes - require authentication only (no subscription check for viewing)
 router.get('/subscription', getSubscriptionStatus);
-router.post('/initiate', initiatePayment);
-router.get('/check/:transactionId', checkPaymentStatus);
 router.get('/history', getPaymentHistory);
+
+// Payment initiation - requires authentication
+router.post('/initiate', initiatePayment);
+
+// Check payment status - requires authentication
+router.get('/check/:transactionId', checkPaymentStatus);
+
+// Optional: Add a test route to verify authentication
+router.get('/test', (req, res) => {
+    res.json({
+        message: 'Payment routes working',
+        user: req.user.email,
+        role: req.user.role
+    });
+});
 
 module.exports = router;

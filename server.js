@@ -4,7 +4,6 @@ const cors = require('cors');
 const connectDB = require('./config/database');
 const { errorHandler } = require('./middleware/errorMiddleware');
 const { protect } = require('./middleware/authMiddleware');
-const { checkSubscription } = require('./middleware/subscriptionCheck');
 
 // Load env vars
 dotenv.config();
@@ -34,7 +33,7 @@ app.use(cors({
 
 // Request logging
 app.use((req, res, next) => {
-    console.log(`${req.method} ${req.path}`);
+    console.log(`${req.method} ${req.path} - User: ${req.user?.email || 'Not authenticated'}`);
     next();
 });
 
@@ -49,28 +48,17 @@ app.use('/api/payments/webhook', paymentRoutes);
 // PROTECTED ROUTES (Auth required)
 app.use('/api/companies', protect, companyRoutes);
 app.use('/api/orders', protect, orderRoutes);
-app.use('/api/payments', protect, paymentRoutes);
+app.use('/api/payments', paymentRoutes); // Remove protect here since it's in paymentRoutes
 
-// SUBSCRIPTION ROUTES - For super admins (protected + subscription check)
-const {
-    initiatePayment,
-    getSubscriptionStatus,
-    getPaymentHistory,
-    checkPaymentStatus
-} = require('./controllers/paymentController');
-
-// All subscription routes require authentication and active subscription
-app.get('/api/subscription/status', protect, checkSubscription, getSubscriptionStatus);
-app.get('/api/subscription/history', protect, checkSubscription, getPaymentHistory);
-app.post('/api/subscription/pay', protect, initiatePayment); // Initiate doesn't need subscription check
-app.get('/api/subscription/check/:transactionId', protect, checkPaymentStatus);
-
-// Admin stats - simple endpoint for super admins
-app.get('/api/admin/stats', protect, checkSubscription, async (req, res) => {
+// Admin stats - with proper role check
+app.get('/api/admin/stats', protect, async (req, res) => {
     try {
         // Check if user is super admin
         if (req.user.role !== 'SUPER_ADMIN') {
-            return res.status(403).json({ error: 'Access denied. Super admin only.' });
+            return res.status(403).json({
+                success: false,
+                error: 'Access denied. Super admin only.'
+            });
         }
 
         const Company = require('./models/Company');
@@ -121,19 +109,13 @@ app.get('/', (req, res) => {
             orders: '/api/orders',
             otp: '/api/otp',
             payments: '/api/payments',
-            subscription: '/api/subscription',
             admin: '/api/admin/stats'
         }
     });
 });
 
-// ❌ REMOVE THIS WILDCARD ROUTE - This is causing the error
-// app.use('*', (req, res) => {
-//     res.status(404).json({ error: 'Route not found' });
-// });
-
-// ✅ Use this instead - a proper 404 handler without wildcard
-app.use((req, res, next) => {
+// 404 handler
+app.use((req, res) => {
     res.status(404).json({
         success: false,
         error: 'Route not found',
@@ -141,7 +123,7 @@ app.use((req, res, next) => {
     });
 });
 
-// Error handler (should be last)
+// Error handler
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
@@ -149,23 +131,16 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`✅ Server running on port ${PORT}`);
     console.log(`📡 Payment webhook: http://localhost:${PORT}/api/payments/webhook/nkwa`);
-    console.log(`💰 Subscription endpoints:`);
-    console.log(`   - GET  /api/subscription/status`);
-    console.log(`   - GET  /api/subscription/history`);
-    console.log(`   - POST /api/subscription/pay`);
-    console.log(`   - GET  /api/subscription/check/:id`);
-    console.log(`📊 Admin stats: http://localhost:${PORT}/api/admin/stats`);
+    console.log(`💰 Payment endpoints:`);
+    console.log(`   - GET  /api/payments/subscription`);
+    console.log(`   - GET  /api/payments/history`);
+    console.log(`   - POST /api/payments/initiate`);
+    console.log(`   - GET  /api/payments/check/:transactionId`);
+    console.log(`   - GET  /api/payments/test`);
 });
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (err, promise) => {
+process.on('unhandledRejection', (err) => {
     console.log(`❌ Error: ${err.message}`);
-    process.exit(1);
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-    console.log(`❌ Uncaught Exception: ${err.message}`);
-    console.log(err.stack);
     process.exit(1);
 });

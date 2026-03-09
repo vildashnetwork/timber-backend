@@ -30,7 +30,7 @@ const paymentSchema = new mongoose.Schema({
     },
     provider: {
         type: String,
-        enum: ['STRIPE', 'PAYSTACK', 'FLUTTERWAVE', 'ORANGE_MONEY', 'MTN_MONEY', 'MANUAL'],
+        enum: ['STRIPE', 'PAYSTACK', 'FLUTTERWAVE', 'ORANGE_MONEY', 'MTN_MONEY', 'MANUAL', 'NKWA'], // NKWA added
         default: 'MANUAL'
     },
     transactionId: String,
