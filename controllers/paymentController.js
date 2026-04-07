@@ -858,6 +858,7 @@ const Payment = require('../models/Payment');
 const { PaymentOperation } = require('@hachther/mesomb');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
+const axios = require('axios');
 
 // ============ ME SOMB PAYMENT CLIENT (for initiating payments) ============
 let paymentClient = null;
