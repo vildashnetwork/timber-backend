@@ -1,3 +1,72 @@
+// const mongoose = require('mongoose');
+
+// const paymentSchema = new mongoose.Schema({
+//     admin: {
+//         type: mongoose.Schema.Types.ObjectId,
+//         ref: 'User',
+//         required: true
+//     },
+//     subscription: {
+//         type: mongoose.Schema.Types.ObjectId,
+//         ref: 'Subscription'
+//     },
+//     amount: {
+//         type: Number,
+//         required: true
+//     },
+//     currency: {
+//         type: String,
+//         default: 'XAF'
+//     },
+//     status: {
+//         type: String,
+//         enum: ['PENDING', 'SUCCESS', 'FAILED', 'REFUNDED'],
+//         default: 'PENDING'
+//     },
+//     paymentMethod: {
+//         type: String,
+//         enum: ['CARD', 'MOBILE_MONEY', 'MANUAL'],
+//         required: true
+//     },
+//     provider: {
+//         type: String,
+//         enum: ['STRIPE', 'PAYSTACK', 'FLUTTERWAVE', 'ORANGE_MONEY', 'MTN_MONEY', 'MANUAL', 'NKWA'], // NKWA added
+//         default: 'MANUAL'
+//     },
+//     transactionId: String,
+//     providerReference: String,
+//     paymentDate: Date,
+//     metadata: mongoose.Schema.Types.Mixed,
+//     receipt: {
+//         url: String,
+//         sent: { type: Boolean, default: false }
+//     }
+// }, {
+//     timestamps: true
+// });
+
+// module.exports = mongoose.model('Payment', paymentSchema);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const mongoose = require('mongoose');
 
 const paymentSchema = new mongoose.Schema({
@@ -30,19 +99,35 @@ const paymentSchema = new mongoose.Schema({
     },
     provider: {
         type: String,
-        enum: ['STRIPE', 'PAYSTACK', 'FLUTTERWAVE', 'ORANGE_MONEY', 'MTN_MONEY', 'MANUAL', 'NKWA'], // NKWA added
+        enum: ['STRIPE', 'PAYSTACK', 'FLUTTERWAVE', 'ORANGE_MONEY', 'MTN_MONEY', 'MANUAL', 'NKWA', 'MESOMB'], // MESOMB added
         default: 'MANUAL'
     },
-    transactionId: String,
+    transactionId: {
+        type: String,
+        unique: true,
+        sparse: true
+    },
     providerReference: String,
     paymentDate: Date,
-    metadata: mongoose.Schema.Types.Mixed,
+    metadata: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
+    },
     receipt: {
         url: String,
         sent: { type: Boolean, default: false }
+    },
+    weeks: {
+        type: Number,
+        default: 1
     }
 }, {
     timestamps: true
 });
+
+// Index for faster queries
+paymentSchema.index({ admin: 1, createdAt: -1 });
+paymentSchema.index({ transactionId: 1 });
+paymentSchema.index({ status: 1, provider: 1 });
 
 module.exports = mongoose.model('Payment', paymentSchema);
